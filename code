@@ -1,0 +1,153 @@
+import heapq
+import random
+
+class RawMaterial:
+    def _init_(self, material_id, arrival_time):
+        self.material_id = material_id
+        self.arrival_time = arrival_time
+
+class IntermediatePart:
+    def _init_(self, part_id, processed_time):
+        self.part_id = part_id
+        self.processed_time = processed_time
+
+class FinishedProduct:
+    def _init_(self, product_id, assembly_time):
+        self.product_id = product_id
+        self.assembly_time = assembly_time
+
+class Machine:
+    def _init_(self, machine_id, operation_time, failure_rate, maintenance_time):
+        self.machine_id = machine_id
+        self.operation_time = operation_time
+        self.failure_rate = failure_rate
+        self.maintenance_time = maintenance_time
+        self.is_operational = True
+
+class Operator:
+    def _init_(self, operator_id, shift_start, shift_end):
+        self.operator_id = operator_id
+        self.shift_start = shift_start
+        self.shift_end = shift_end
+
+def get_operation_time():
+    return random.uniform(1, 5)
+
+def get_failure_rate():
+    return random.uniform(0.01, 0.1)
+
+def get_maintenance_time():
+    return random.uniform(5, 15)
+
+def get_shift_pattern():
+    return [(0, 480), (480, 960), (960, 1440)]
+
+class Event:
+    def _init_(self, time, event_type, details):
+        self.time = time
+        self.event_type = event_type
+        self.details = details
+
+    def _lt_(self, other):
+        return self.time < other.time
+
+class Simulation:
+    def _init_(self):
+        self.event_queue = []
+        self.current_time = 0
+        self.machines = machines
+        self.operators = operators
+        self.operator_availability = {op.operator_id: op.shift_start <= self.current_time < op.shift_end for op in self.operators}
+
+    def schedule_event(self, event):
+        heapq.heappush(self.event_queue, event)
+        print(f"Scheduled event {event.event_type} at time {event.time} with details {event.details}")
+
+    def run(self):
+        while self.event_queue:
+            event = heapq.heappop(self.event_queue)
+            self.current_time = event.time
+            self.update_operator_availability()
+            print(f"Processing event {event.event_type} at time {self.current_time} with details {event.details}")
+            self.process_event(event)
+
+    def update_operator_availability(self):
+        for operator in self.operators:
+            self.operator_availability[operator.operator_id] = operator.shift_start <= self.current_time < operator.shift_end
+        print(f"Updated operator availability: {self.operator_availability}")
+
+    def process_event(self, event):
+        if event.event_type == "raw_material_arrival":
+            self.handle_raw_material_arrival(event)
+        elif event.event_type == "operation_start":
+            self.handle_operation_start(event)
+        elif event.event_type == "operation_end":
+            self.handle_operation_end(event)
+        elif event.event_type == "machine_failure":
+            self.handle_machine_failure(event)
+        elif event.event_type == "maintenance_complete":
+            self.handle_maintenance_complete(event)
+
+    def handle_raw_material_arrival(self, event):
+        print(f"Handling raw material arrival for material {event.details['material_id']} at time {self.current_time}")
+        machine = self.allocate_machine()
+        if machine:
+            operation_start_time = self.current_time
+            operation_end_time = self.current_time + machine.operation_time
+            available_operator = next((op_id for op_id, available in self.operator_availability.items() if available), None)
+            if available_operator:
+                self.schedule_event(Event(time=operation_start_time, event_type="operation_start", details={"machine_id": machine.machine_id, "material_id": event.details['material_id'], "operator_id": available_operator}))
+                self.schedule_event(Event(time=operation_end_time, event_type="operation_end", details={"machine_id": machine.machine_id, "material_id": event.details['material_id']}))
+            else:
+                print("No available operators for the operation.")
+        else:
+            print("No available machines for the operation.")
+
+    def allocate_machine(self):
+        available_machines = [machine for machine in self.machines if machine.is_operational]
+        if available_machines:
+            machine = random.choice(available_machines)
+            print(f"Allocated machine {machine.machine_id}")
+            return machine
+        print("No machines available")
+        return None
+
+    def handle_operation_start(self, event):
+        print(f"Operation started on machine {event.details['machine_id']} by operator {event.details['operator_id']} for material {event.details['material_id']} at time {self.current_time}")
+
+    def handle_operation_end(self, event):
+        print(f"Operation completed on machine {event.details['machine_id']} for material {event.details['material_id']} at time {self.current_time}")
+
+    def handle_machine_failure(self, event):
+        print(f"Machine {event.details['machine_id']} failed at time {self.current_time}")
+        maintenance_time = get_maintenance_time()
+        self.schedule_event(Event(time=self.current_time + maintenance_time, event_type="maintenance_complete", details={"machine_id": event.details['machine_id']}))
+
+    def handle_maintenance_complete(self, event):
+        print(f"Machine {event.details['machine_id']} maintenance completed at time {self.current_time}")
+
+# Initialize machines
+machines = [
+    Machine(machine_id=1, operation_time=get_operation_time(), failure_rate=get_failure_rate(), maintenance_time=get_maintenance_time()),
+    Machine(machine_id=2, operation_time=get_operation_time(), failure_rate=get_failure_rate(), maintenance_time=get_maintenance_time())
+]
+
+# Initialize operators
+operators = [
+    Operator(operator_id=1, shift_start=0, shift_end=480),
+    Operator(operator_id=2, shift_start=480, shift_end=960),
+    Operator(operator_id=3, shift_start=960, shift_end=1440)
+]
+
+# Initialize simulation
+simulation = Simulation()
+
+# Schedule initial raw material arrivals
+for i in range(5):
+    arrival_time = i * 10
+    raw_material = RawMaterial(material_id=i, arrival_time=arrival_time)
+    event = Event(time=arrival_time, event_type="raw_material_arrival", details={"material_id": i})
+    simulation.schedule_event(event)
+
+# Run the simulation
+simulation.run()
